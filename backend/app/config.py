@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # 日志配置
     log_level: str = "INFO"
 
+    # 加密配置（用于 API Key 加密存储）
+    encryption_key: str = ""  # 首次运行时为空，由 CryptoUtils 自动生成
+
     class Config:
         """Pydantic 配置"""
         env_file = ".env"
