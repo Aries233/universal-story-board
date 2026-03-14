@@ -3,6 +3,7 @@ Universal Story Board - 模型路由配置数据模型
 支持多模态任务的动态路由与故障切换
 """
 from sqlmodel import SQLModel, Field, Column, JSON
+from pydantic import ConfigDict
 from typing import Dict, List
 from datetime import datetime
 import enum
@@ -18,6 +19,9 @@ class ModelType(str, enum.Enum):
 
 class ModelRouteConfig(SQLModel, table=True):
     """模型路由配置模型"""
+
+    # Pydantic V2 配置：禁用保护命名空间（允许 model_ 开头的字段）
+    model_config = ConfigDict(protected_namespaces=())
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True, description="路由配置唯一ID")
     model_type: ModelType = Field(index=True, description="模型类型")

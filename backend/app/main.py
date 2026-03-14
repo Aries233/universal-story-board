@@ -8,6 +8,19 @@ from app.config import settings
 from app.database import init_db, engine
 from sqlmodel import Session
 
+# ========== 重要：导入所有 SQLModel 模型类 ==========
+# 必须在 init_db() 之前导入，确保所有模型都被注册到 SQLModel.metadata
+# 这样 create_all(engine) 才能创建所有数据表
+# =====================================================
+from app.models.project import Project
+from app.models.chapter import Chapter
+from app.models.global_snapshot import GlobalSnapshot
+from app.models.asset import Asset
+from app.models.shot import Shot
+from app.models.provider_credential import ProviderCredential
+from app.models.model_route_config import ModelRouteConfig
+# =====================================================
+
 # 创建 FastAPI 应用实例
 app = FastAPI(
     title=settings.app_name,
@@ -48,8 +61,10 @@ def init_default_route_configs():
     """
     初始化默认路由配置
     如果数据库中不存在路由配置，则插入默认配置
+
+    注意：此函数必须在 init_db() 之后调用，确保表已创建
     """
-    from app.models.model_route_config import ModelRouteConfig, DEFAULT_ROUTE_CONFIGS
+    from app.models.model_route_config import DEFAULT_ROUTE_CONFIGS
 
     with Session(engine) as session:
         # 检查是否已存在路由配置
