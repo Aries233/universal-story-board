@@ -40,6 +40,21 @@ app.add_middleware(
 )
 
 
+# ========== 注册 API 路由 ==========
+from app.api.v1 import system, projects
+
+app.include_router(
+    system.router,
+    prefix="/api/v1"
+)
+
+app.include_router(
+    projects.router,
+    prefix="/api/v1"
+)
+# ===================================
+
+
 @app.on_event("startup")
 async def startup_event():
     """
