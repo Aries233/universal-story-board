@@ -184,7 +184,8 @@ universal-story-board/
 │   │   │   │   ├── chapters.py     # 章节管理接口
 │   │   │   │   ├── assets.py      # 资产管理接口
 │   │   │   │   ├── workflow.py    # 工作流触发接口
-│   │   │   │   └── export.py      # 导出接口
+│   │   │   │   ├── export.py      # 导出接口
+│   │   │   │   └── system.py      # 系统配置接口
 │   │   │
 │   │   ├── models/                 # SQLModel 数据模型
 │   │   │   ├── __init__.py
@@ -192,7 +193,9 @@ universal-story-board/
 │   │   │   ├── chapter.py
 │   │   │   ├── asset.py
 │   │   │   ├── shot.py
-│   │   │   └── global_snapshot.py
+│   │   │   ├── global_snapshot.py
+│   │   │   ├── provider_credential.py # 服务商凭证模型
+│   │   │   └── model_route_config.py   # 模型路由配置
 │   │   │
 │   │   ├── schemas/                # Pydantic 请求/响应模型
 │   │   │   ├── __init__.py
@@ -200,14 +203,16 @@ universal-story-board/
 │   │   │   ├── chapter.py
 │   │   │   ├── asset.py
 │   │   │   ├── shot.py
-│   │   │   └── workflow.py
+│   │   │   ├── workflow.py
+│   │   │   └── system.py         # 系统配置请求/响应模型
 │   │   │
 │   │   ├── services/               # 业务逻辑层
 │   │   │   ├── __init__.py
 │   │   │   ├── project_service.py
 │   │   │   ├── chapter_service.py
 │   │   │   ├── asset_service.py
-│   │   │   └── progress_service.py
+│   │   │   ├── progress_service.py
+│   │   │   └── system_service.py  # 系统配置服务
 │   │   │
 │   │   ├── agents/                 # AI Agent 编排层
 │   │   │   ├── __init__.py
@@ -227,7 +232,11 @@ universal-story-board/
 │   │   │   ├── __init__.py
 │   │   │   ├── base_adapter.py    # Adapter 基类
 │   │   │   ├── glm_adapter.py     # GLM 适配器
+│   │   │   ├── qwen_adapter.py    # 千问适配器（新增）
+│   │   │   ├── gemini_adapter.py  # Gemini 适配器（新增）
+│   │   │   ├── openai_adapter.py  # OpenAI 适配器（新增）
 │   │   │   ├── sd_adapter.py      # Stable Diffusion 适配器
+│   │   │   ├── cogview_adapter.py # CogView 适配器（新增）
 │   │   │   └── sora_adapter.py   # Sora2 适配器
 │   │   │
 │   │   ├── prompts/                # 提示词模板
@@ -242,7 +251,8 @@ universal-story-board/
 │   │   │   ├── __init__.py
 │   │   │   ├── text_processor.py  # 文本预处理
 │   │   │   ├── cache.py           # 缓存封装（预留 Redis 接口）
-│   │   │   └── queue.py           # 基于 SQLite 的简易队列
+│   │   │   ├── queue.py           # 基于 SQLite 的简易队列
+│   │   │   └── crypto.py          # 加密工具（API Key 加密存储）
 │   │   │
 │   │   └── middleware/             # 中间件
 │   │       ├── __init__.py
@@ -262,6 +272,308 @@ universal-story-board/
 ```
 
 ### 4.2 核心模块设计
+
+#### 4.2.0 多模型动态配置与路由设计（新增）
+
+**设计目标**: 实现模型提供商解耦、API Key 动态配置、任务智能路由、故障自动切换。
+
+**核心数据模型**:
+
+```python
+# models/provider_credential.py
+
+from sqlmodel import SQLModel, Field, Column, JSON
+from typing import Optional, Dict, List
+from datetime import datetime
+import enum
+import uuid
+
+class ProviderType(str, enum.Enum):
+    """服务商类型枚举"""
+    ZHIPU = "zhipu"              # 智谱 AI
+    QWEN = "qwen"                # 阿里千问
+    GEMINI = "gemini"            # Google Gemini
+    OPENAI = "openai"            # OpenAI
+    STABILITY = "stability"      # Stability AI
+    RUNWAY = "runway"            # Runway
+
+class ProviderCredential(SQLModel, table=True):
+    """服务商凭证模型（API Key 管理）"""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    provider: ProviderType = Field(index=True, description="服务商类型")
+    api_key: str = Field(description="API Key（AES-256 加密存储）")
+    api_key_masked: str = Field(description="脱敏显示（仅前后各4位）")
+
+    # 凭证元数据
+    name: str = Field(max_length=200, description="凭证名称（用户自定义）")
+    is_active: bool = Field(default=True, index=True, description="是否启用")
+    priority: int = Field(default=0, description="优先级（数字越小优先级越高）")
+
+    # 配置项（JSON 字段，灵活存储不同服务商的特定配置）
+    config: Dict = Field(default_factory=dict, sa_column=Column(JSON), description="服务商特定配置")
+
+    # 统计数据
+    call_count: int = Field(default=0, description="累计调用次数")
+    success_count: int = Field(default=0, description="成功次数")
+    failure_count: int = Field(default=0, description="失败次数")
+    last_called_at: Optional[datetime] = Field(default=None, description="最后调用时间")
+    last_error: Optional[str] = Field(default=None, description="最后错误信息")
+
+    # 元数据
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+```
+
+```python
+# models/model_route_config.py
+
+from sqlmodel import SQLModel, Field, Column, JSON
+from typing import Optional, Dict, List
+from datetime import datetime
+import uuid
+
+class ModelType(str, enum.Enum):
+    """模型类型枚举"""
+    TEXT = "text"                # 文本大模型
+    IMAGE = "image"              # 文生图模型
+    VIDEO = "video"              # 文生视频模型
+
+class ModelRouteConfig(SQLModel, table=True):
+    """模型路由配置模型"""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    model_type: ModelType = Field(index=True, description="模型类型")
+
+    # 路由策略
+    primary_model: str = Field(description="首选模型（如 glm-4-plus）")
+    fallback_models: List[str] = Field(default_factory=list, sa_column=Column(JSON), description="备用模型列表")
+
+    # 模型映射（模型名称 → 服务商）
+    model_to_provider: Dict[str, str] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON),
+        description="模型名称到服务商的映射（如 {'glm-4-plus': 'zhipu'}）"
+    )
+
+    # 路由规则（JSON 字段，灵活配置路由策略）
+    routing_rules: Dict = Field(default_factory=dict, sa_column=Column(JSON), description="路由规则配置")
+
+    # 元数据
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="创建时间")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="更新时间")
+
+# 默认路由配置示例
+DEFAULT_ROUTE_CONFIGS = [
+    {
+        "model_type": "text",
+        "primary_model": "glm-4-plus",
+        "fallback_models": ["qwen-max", "gemini-pro", "gpt-4-turbo"],
+        "model_to_provider": {
+            "glm-4-plus": "zhipu",
+            "glm-4-long": "zhipu",
+            "qwen-max": "qwen",
+            "gemini-pro": "gemini",
+            "gpt-4-turbo": "openai"
+        }
+    },
+    {
+        "model_type": "image",
+        "primary_model": "cogview-3",
+        "fallback_models": ["sd3", "dalle-3"],
+        "model_to_provider": {
+            "cogview-3": "zhipu",
+            "sd3": "stability",
+            "dalle-3": "openai"
+        }
+    },
+    {
+        "model_type": "video",
+        "primary_model": "sora2",
+        "fallback_models": ["runway-gen2"],
+        "model_to_provider": {
+            "sora2": "runway",
+            "runway-gen2": "runway"
+        }
+    }
+]
+```
+
+**加密工具实现**:
+
+```python
+# utils/crypto.py
+
+from cryptography.fernet import Fernet
+import os
+
+class CryptoUtils:
+    """加密工具类（用于 API Key 加密存储）"""
+
+    def __init__(self):
+        # 从环境变量读取加密密钥（首次运行时自动生成）
+        key = os.getenv("ENCRYPTION_KEY")
+        if not key:
+            key = Fernet.generate_key().decode()
+            print(f"⚠️  请将以下加密密钥添加到 .env 文件：")
+            print(f"ENCRYPTION_KEY={key}")
+        self.cipher = Fernet(key.encode() if isinstance(key, str) else key)
+
+    def encrypt(self, plaintext: str) -> str:
+        """加密"""
+        return self.cipher.encrypt(plaintext.encode()).decode()
+
+    def decrypt(self, ciphertext: str) -> str:
+        """解密"""
+        return self.cipher.decrypt(ciphertext.encode()).decode()
+
+    def mask_api_key(self, api_key: str, show_chars: int = 4) -> str:
+        """脱敏显示"""
+        if len(api_key) <= show_chars * 2:
+            return "*" * len(api_key)
+        return api_key[:show_chars] + "*" * (len(api_key) - show_chars * 2) + api_key[-show_chars:]
+
+# 全局实例
+crypto = CryptoUtils()
+```
+
+**动态路由器实现**:
+
+```python
+# services/model_router.py
+
+from app.models.provider_credential import ProviderCredential, ProviderType
+from app.models.model_route_config import ModelRouteConfig, ModelType
+from app.utils.crypto import crypto
+from sqlalchemy.orm import Session
+from typing import Dict, Optional, List
+
+class ModelRouter:
+    """动态模型路由器"""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_active_credential(self, provider: ProviderType) -> Optional[ProviderCredential]:
+        """获取服务商的激活凭证（按优先级排序）"""
+        return self.db.query(ProviderCredential).filter(
+            ProviderCredential.provider == provider,
+            ProviderCredential.is_active == True
+        ).order_by(ProviderCredential.priority.asc()).first()
+
+    def get_route_config(self, model_type: ModelType) -> Optional[ModelRouteConfig]:
+        """获取指定模型类型的路由配置"""
+        return self.db.query(ModelRouteConfig).filter(
+            ModelRouteConfig.model_type == model_type
+        ).first()
+
+    def resolve_model_credential(self, model_name: str, model_type: ModelType) -> Optional[Dict]:
+        """
+        解析模型名称，返回对应的服务商和凭证
+        支持故障自动切换
+        """
+        # 1. 获取路由配置
+        route_config = self.get_route_config(model_type)
+        if not route_config:
+            raise ValueError(f"未找到 {model_type} 的路由配置")
+
+        # 2. 确定候选模型列表（首选 + 备用）
+        candidate_models = [route_config.primary_model] + route_config.fallback_models
+
+        for candidate_model in candidate_models:
+            # 3. 解析模型对应的服务商
+            provider_name = route_config.model_to_provider.get(candidate_model)
+            if not provider_name:
+                continue
+
+            try:
+                provider = ProviderType(provider_name)
+            except ValueError:
+                continue
+
+            # 4. 获取服务商凭证
+            credential = self.get_active_credential(provider)
+            if not credential:
+                continue
+
+            # 5. 解密 API Key
+            api_key = crypto.decrypt(credential.api_key)
+
+            return {
+                "provider": provider,
+                "model": candidate_model,
+                "api_key": api_key,
+                "credential_id": credential.id
+            }
+
+        # 所有候选模型均不可用
+        raise RuntimeError(f"无可用模型: {candidate_models}")
+
+    def record_call(self, credential_id: str, success: bool, error: Optional[str] = None):
+        """记录调用统计"""
+        credential = self.db.query(ProviderCredential).filter(
+            ProviderCredential.id == credential_id
+        ).first()
+        if credential:
+            credential.call_count += 1
+            if success:
+                credential.success_count += 1
+            else:
+                credential.failure_count += 1
+                credential.last_error = error
+            credential.last_called_at = datetime.utcnow()
+            self.db.commit()
+```
+
+**使用示例**:
+
+```python
+# agents/writer_agent.py
+
+from app.services.model_router import ModelRouter
+from app.llm.glm_adapter import GLMAdapter
+from app.llm.qwen_adapter import QwenAdapter
+from app.llm.gemini_adapter import GeminiAdapter
+from app.llm.openai_adapter import OpenAIAdapter
+
+class WriterAgent:
+    def __init__(self, db: Session):
+        self.db = db
+        self.router = ModelRouter(db)
+
+    def execute(self, context: dict) -> dict:
+        # 1. 动态解析文本大模型配置
+        model_config = self.router.resolve_model_credential(
+            model_name="glm-4-plus",  # 首选模型，会自动切换
+            model_type=ModelType.TEXT
+        )
+
+        # 2. 根据服务商选择对应的 Adapter
+        adapter = self._create_adapter(model_config['provider'], model_config['api_key'])
+
+        # 3. 调用模型
+        result = adapter.chat(context['prompt'])
+
+        # 4. 记录调用统计
+        self.router.record_call(model_config['credential_id'], success=True)
+
+        return result
+
+    def _create_adapter(self, provider, api_key):
+        """根据服务商创建对应的 Adapter"""
+        if provider == ProviderType.ZHIPU:
+            return GLMAdapter(api_key)
+        elif provider == ProviderType.QWEN:
+            return QwenAdapter(api_key)
+        elif provider == ProviderType.GEMINI:
+            return GeminiAdapter(api_key)
+        elif provider == ProviderType.OPENAI:
+            return OpenAIAdapter(api_key)
+        else:
+            raise ValueError(f"不支持的服务商: {provider}")
+```
+
+---
 
 #### 4.2.1 Pydantic 约束大模型 JSON 输出
 

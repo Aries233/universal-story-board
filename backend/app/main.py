@@ -5,7 +5,8 @@ Universal Story Board - FastAPI 应用入口
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.database import init_db
+from app.database import init_db, engine
+from sqlmodel import Session
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
@@ -30,11 +31,46 @@ app.add_middleware(
 async def startup_event():
     """
     应用启动事件
-    初始化数据库，创建所有数据表
+    初始化数据库，创建所有数据表，初始化默认路由配置
     """
+    # 1. 初始化数据库
     init_db()
+
+    # 2. 初始化默认路由配置（如果不存在）
+    init_default_route_configs()
+
     print(f"✅ {settings.app_name} v{settings.app_version} 启动成功")
     print(f"📦 数据库: {settings.database_url}")
+    print(f"🔌 支持的多模型路由: 文本/图片/视频")
+
+
+def init_default_route_configs():
+    """
+    初始化默认路由配置
+    如果数据库中不存在路由配置，则插入默认配置
+    """
+    from app.models.model_route_config import ModelRouteConfig, DEFAULT_ROUTE_CONFIGS
+
+    with Session(engine) as session:
+        # 检查是否已存在路由配置
+        existing_configs = session.query(ModelRouteConfig).count()
+        if existing_configs > 0:
+            print(f"✅ 路由配置已存在（共 {existing_configs} 条），跳过初始化")
+            return
+
+        # 插入默认配置
+        for config_data in DEFAULT_ROUTE_CONFIGS:
+            config = ModelRouteConfig(
+                model_type=config_data["model_type"],
+                primary_model=config_data["primary_model"],
+                fallback_models=config_data["fallback_models"],
+                model_to_provider=config_data["model_to_provider"],
+                routing_rules=config_data["routing_rules"]
+            )
+            session.add(config)
+
+        session.commit()
+        print(f"✅ 已初始化 {len(DEFAULT_ROUTE_CONFIGS)} 条默认路由配置")
 
 
 @app.get("/")
