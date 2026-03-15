@@ -137,6 +137,20 @@ class SystemService:
 
         return True
 
+    def get_credential(self, credential_id: str) -> Optional[ProviderCredential]:
+        """
+        获取单个服务商凭证
+
+        Args:
+            credential_id: 凭证 ID
+
+        Returns:
+            凭证对象，不存在则返回 None
+        """
+        return self.db.query(ProviderCredential).filter(
+            ProviderCredential.id == credential_id
+        ).first()
+
     def list_route_configs(self) -> List[ModelRouteConfig]:
         """
         获取所有路由配置

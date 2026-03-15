@@ -217,6 +217,14 @@ class WriterAgent(BaseAgent):
             script_text = adapter.chat(messages, temperature=0.7, model=model_config['model'])
 
             # 记录调用统计（使用 Pydantic 模型实例化）
+            # 1. 先查询凭证对象
+            credential = self.system_service.get_credential(model_config['credential_id'])
+            
+            # 2. 确保凭证存在
+            if credential is None:
+                raise ValueError(f"凭证不存在: {model_config['credential_id']}")
+            
+            # 3. 增加调用次数
             self.system_service.update_credential(
                 model_config['credential_id'],
                 data=ProviderCredentialUpdate(call_count=credential.call_count + 1)
