@@ -207,16 +207,23 @@ def test_get_chapter_detail():
             print(f"📊 状态: {data['status']}")
             print(f"🤖 当前 Agent: {data.get('current_agent', 'N/A')}")
 
-            # 检查是否有 script、characters 等数据
-            if data.get('script'):
-                print(f"✅ 剧本数据已写入: {len(data['script'])} 字符")
-            else:
-                print(f"⚠️  剧本数据尚未写入")
+            # 检查是否有 script、characters 等数据（增加空值检查）
+            script = data.get('script')
+            if script:
+                if isinstance(script, str):
+                    print(f"✅ 剧本数据已写入（文本类型）: {len(script)} 字符")
+                elif isinstance(script, dict):
+                    print(f"✅ 剧本数据已写入（字典类型）: {len(str(script))} 字符")
+                else:
+                    print(f"⚠️  剧本数据类型未知: {type(script)}")
 
-            if data.get('script', {}).get('style_guide'):
-                print(f"✅ 风格规范已写入")
+                # 检查 style_guide
+                if isinstance(script, dict) and script.get('style_guide'):
+                    print(f"✅ 风格规范已写入")
+                else:
+                    print(f"⚠️  风格规范尚未写入")
             else:
-                print(f"⚠️  风格规范尚未写入")
+                print(f"⚠️  剧本数据尚未写入（为空）")
 
             return True
 
