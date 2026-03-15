@@ -3,7 +3,7 @@ Universal Story Board - Agent 基类
 定义所有 Agent 的统一接口
 """
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, Any
 from sqlmodel import Session
 
 

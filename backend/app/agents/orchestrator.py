@@ -2,7 +2,7 @@
 Universal Story Board - Agent 编排器
 负责 Agent 的调度和状态管理
 """
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from sqlmodel import Session
 
 from app.agents.state_machine import AgentStateMachine, AgentType, ChapterStatus

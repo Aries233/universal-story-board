@@ -3,7 +3,7 @@ Universal Story Board - 工作流 Pydantic Schemas
 用于工作流触发和状态查询的请求/响应数据验证
 """
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from datetime import datetime
 
 

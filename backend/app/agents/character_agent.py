@@ -2,7 +2,7 @@
 Universal Story Board - 角色设计师 Agent
 根据剧本提取角色并生成角色资产
 """
-from typing import Dict, List
+from typing import Dict, List, Any
 from sqlmodel import Session
 
 from app.agents.base_agent import BaseAgent

@@ -2,7 +2,7 @@
 Universal Story Board - 编剧 Agent
 根据原始文本或全局上下文生成剧本
 """
-from typing import Dict, List
+from typing import Dict, List, Any
 from sqlmodel import Session
 
 from app.agents.base_agent import BaseAgent

@@ -3,7 +3,7 @@ Universal Story Board - Agent 状态机
 定义 Agent 执行状态和转移规则
 """
 from enum import Enum
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 
 class AgentType(str, Enum):
