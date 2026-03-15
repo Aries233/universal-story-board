@@ -40,10 +40,7 @@ class Settings(BaseSettings):
     rate_limit_seconds: int = 60
 
     # CORS 配置
-    cors_origins: List[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ]
+    cors_origins: List[str] = ["*"]  # 允许所有来源（开发环境）
 
     # 日志配置
     log_level: str = "INFO"
