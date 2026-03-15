@@ -122,41 +122,42 @@ async def get_workflow_status(
         error_message=None,  # 可以从某个地方存储错误信息
         progress={
             "total_steps": 4 if chapter.status == ChapterStatus.PROCESSING else 0,
-            "completed_steps": self._calculate_completed_steps(chapter.status, chapter.current_agent)
+            "completed_steps": calculate_completed_steps(chapter.status, chapter.current_agent)
         },
         started_at=chapter.started_at,
         completed_at=chapter.completed_at
     )
 
-    def _calculate_completed_steps(self, status: str, current_agent: Optional[str]) -> int:
-        """
-        计算已完成的步骤数
 
-        Args:
-            status: 章节状态
-            current_agent: 当前执行的 Agent
+def calculate_completed_steps(status: str, current_agent: Optional[str]) -> int:
+    """
+    计算已完成的步骤数（模块级函数）
 
-        Returns:
-            已完成的步骤数
-        """
-        if status == ChapterStatus.COMPLETED:
-            return 4
-        elif status == ChapterStatus.PENDING:
-            return 0
-        elif status == ChapterStatus.FAILED:
-            return 0
+    Args:
+        status: 章节状态
+        current_agent: 当前执行的 Agent
 
-        # 根据当前 Agent 判断步骤
-        from app.agents.state_machine import AgentType
+    Returns:
+        已完成的步骤数
+    """
+    if status == ChapterStatus.COMPLETED:
+        return 4
+    elif status == ChapterStatus.PENDING:
+        return 0
+    elif status == ChapterStatus.FAILED:
+        return 0
 
-        agent_steps = {
-            AgentType.WRITER: 1,
-            AgentType.CHARACTER: 2,
-            AgentType.SCENE: 3,
-            AgentType.DIRECTOR: 4
-        }
+    # 根据当前 Agent 判断步骤
+    from app.agents.state_machine import AgentType
 
-        if current_agent:
-            return agent_steps.get(AgentType(current_agent), 0)
-        else:
-            return 0
+    agent_steps = {
+        AgentType.WRITER: 1,
+        AgentType.CHARACTER: 2,
+        AgentType.SCENE: 3,
+        AgentType.DIRECTOR: 4
+    }
+
+    if current_agent:
+        return agent_steps.get(AgentType(current_agent), 0)
+    else:
+        return 0
