@@ -192,29 +192,89 @@ class AgentOrchestrator:
         retry_count = 0
         max_retries = self.state_machine.max_retries
 
+        last_error = None
+
         while retry_count < max_retries:
             try:
                 # 执行 Agent 任务
                 result = agent.execute(context)
 
-                # 成功，返回结果
+                # 成功，返回结果（只合并需要的字段，避免覆盖已有字段）
                 print(f"[{agent_type}] 执行成功")
-                return {**context, **result}
+                print(f"[{agent_type}] 返回结果类型: {type(result)}")
+
+                # 打印结果的部分内容（用于调试）
+                if isinstance(result, dict):
+                    for key in result.keys():
+                        print(f"[{agent_type}] 返回字段: {key} = {type(result[key])}")
+
+                # 只合并需要的字段，避免覆盖已有字段
+                # 特别是不要覆盖 script 和 style_guide
+                merged_context = {**context}
+                for key, value in result.items():
+                    # 对于 writer_agent，保留 script 和 style_guide
+                    # 对于 character_agent，添加 characters 和 assets
+                    # 不要覆盖 context 中已有的字段
+                    if key not in merged_context or agent_type == AgentType.WRITER:
+                        merged_context[key] = value
+                    elif key == "script" and merged_context.get("script") is not None and agent_type == AgentType.CHARACTER:
+                        # character_agent 不要覆盖 script
+                        pass
+                    elif key == "style_guide" and merged_context.get("style_guide") is not None and agent_type == AgentType.CHARACTER:
+                        # character_agent 不要覆盖 style_guide
+                        pass
+
+                return merged_context
 
             except Exception as e:
+                last_error = str(e)
+                import traceback
+                error_trace = traceback.format_exc()
+
                 retry_count += 1
-                print(f"[{agent_type}] 执行失败（第 {retry_count} 次重试）: {str(e)}")
+                print(f"[{agent_type}] 执行失败（第 {retry_count} 次重试）")
+                print(f"[{agent_type}] 错误类型: {type(e).__name__}")
+                print(f"[{agent_type}] 错误信息: {str(e)}")
+                print(f"[{agent_type}] 错误堆栈:\n{error_trace}")
 
                 # 失败处理
                 if retry_count >= max_retries:
                     # 超过最大重试次数
-                    self.state_machine.fail(str(e))
+                    error_message = f"{agent_type} 执行失败（第 {retry_count} 次重试）: {last_error}"
+
+                    # 写入错误信息到数据库
+                    try:
+                        self._update_chapter_error_message(
+                            context['chapter_id'],
+                            error_message
+                        )
+                    except:
+                        pass
+
+                    self.state_machine.fail(error_message)
                     raise
 
                 # 继续重试
 
         # 不应该到这里
         raise Exception(f"{agent_type} 执行失败，超过最大重试次数")
+
+    def _update_chapter_error_message(self, chapter_id: str, error_message: str):
+        """
+        更新章节的错误信息
+
+        Args:
+            chapter_id: 章节 ID
+            error_message: 错误信息
+        """
+        try:
+            from app.schemas.chapter import ChapterUpdate
+            self.chapter_service.update_chapter(
+                chapter_id,
+                ChapterUpdate(error_message=error_message[:500])  # 限制长度
+            )
+        except Exception as e:
+            print(f"[AgentOrchestrator] 更新章节错误信息失败: {str(e)}")
 
     def _create_global_snapshot(self, context: Dict):
         """
