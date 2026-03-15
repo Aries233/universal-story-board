@@ -7,6 +7,7 @@ from sqlmodel import Session
 
 from app.agents.base_agent import BaseAgent
 from app.schemas.workflow import ScriptOutput, ScriptScene, Shot
+from app.schemas.system import ProviderCredentialUpdate
 from app.services.system_service import SystemService
 from app.services.model_router_service import ModelRouterService
 
@@ -215,10 +216,10 @@ class WriterAgent(BaseAgent):
         try:
             script_text = adapter.chat(messages, temperature=0.7, model=model_config['model'])
 
-            # 记录调用统计
+            # 记录调用统计（使用 Pydantic 模型实例化）
             self.system_service.update_credential(
                 model_config['credential_id'],
-                data={"call_count": 1}  # 增加调用次数（实际应该使用专门的记录方法）
+                data=ProviderCredentialUpdate(call_count=credential.call_count + 1)
             )
 
             return script_text
