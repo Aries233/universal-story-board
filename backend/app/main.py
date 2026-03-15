@@ -64,7 +64,8 @@ app.add_middleware(
 
 
 # ========== 注册 API 路由 ==========
-from app.api.v1 import system, projects, chapters, assets
+from fastapi import BackgroundTasks
+from app.api.v1 import system, projects, chapters, assets, workflow
 
 app.include_router(
     system.router,
@@ -85,6 +86,14 @@ app.include_router(
     assets.router,
     prefix="/api/v1"
 )
+
+app.include_router(
+    workflow.router,
+    prefix="/api/v1"
+)
+
+# 创建 BackgroundTasks 实例（用于后台任务）
+background_tasks = BackgroundTasks()
 # ===================================
 
 

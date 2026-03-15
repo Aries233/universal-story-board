@@ -36,6 +36,19 @@ tmp/
 temp/
 .cache/
 
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+usb.db
+venv/
+
 # 测试覆盖率
 coverage/
 .nyc_output/
