@@ -2,6 +2,7 @@
 Universal Story Board - 系统配置 API 路由
 提供服务商凭证和模型路由配置的接口
 """
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 from app.database import get_session

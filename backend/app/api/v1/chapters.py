@@ -2,6 +2,7 @@
 Universal Story Board - 章节管理 API 路由
 提供章节 CRUD 接口
 """
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 from app.database import get_session
