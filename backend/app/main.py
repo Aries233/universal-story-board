@@ -2,6 +2,7 @@
 Universal Story Board - FastAPI 应用入口
 初始化 FastAPI 应用和数据库
 """
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -21,12 +22,34 @@ from app.models.provider_credential import ProviderCredential
 from app.models.model_route_config import ModelRouteConfig
 # =====================================================
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    应用生命周期管理
+    替代已废弃的 @app.on_event("startup") 和 @app.on_event("shutdown")
+    """
+    # 启动时执行
+    init_db()
+    init_default_route_configs()
+
+    print(f"✅ {settings.app_name} v{settings.app_version} 启动成功")
+    print(f"📦 数据库: {settings.database_url}")
+    print(f"🔌 支持的多模型路由: 文本/图片/视频")
+
+    yield
+
+    # 关闭时执行（如果需要）
+    # engine.dispose()
+
+
 # 创建 FastAPI 应用实例
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="基于 AI 的 2D 动画分镜生成平台",
-    debug=settings.debug
+    debug=settings.debug,
+    lifespan=lifespan  # 使用 lifespan 替代 on_event
 )
 
 
@@ -41,7 +64,7 @@ app.add_middleware(
 
 
 # ========== 注册 API 路由 ==========
-from app.api.v1 import system, projects
+from app.api.v1 import system, projects, chapters, assets
 
 app.include_router(
     system.router,
@@ -52,24 +75,17 @@ app.include_router(
     projects.router,
     prefix="/api/v1"
 )
+
+app.include_router(
+    chapters.router,
+    prefix="/api/v1"
+)
+
+app.include_router(
+    assets.router,
+    prefix="/api/v1"
+)
 # ===================================
-
-
-@app.on_event("startup")
-async def startup_event():
-    """
-    应用启动事件
-    初始化数据库，创建所有数据表，初始化默认路由配置
-    """
-    # 1. 初始化数据库
-    init_db()
-
-    # 2. 初始化默认路由配置（如果不存在）
-    init_default_route_configs()
-
-    print(f"✅ {settings.app_name} v{settings.app_version} 启动成功")
-    print(f"📦 数据库: {settings.database_url}")
-    print(f"🔌 支持的多模型路由: 文本/图片/视频")
 
 
 def init_default_route_configs():

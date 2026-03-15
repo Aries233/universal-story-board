@@ -2,7 +2,7 @@
 Universal Story Board - 系统配置 Pydantic Schemas
 用于请求/响应数据验证
 """
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict
 from datetime import datetime
 
@@ -52,6 +52,10 @@ class ProviderCredentialResponse(BaseModel):
 
 class ModelRouteConfigResponse(BaseModel):
     """模型路由配置响应"""
+
+    # Pydantic V2 配置：禁用保护命名空间（允许 model_ 开头的字段）
+    model_config = ConfigDict(protected_namespaces=())
+
     id: str
     model_type: str
     primary_model: str
@@ -64,6 +68,10 @@ class ModelRouteConfigResponse(BaseModel):
 
 class ModelRouteConfigUpdate(BaseModel):
     """更新模型路由配置请求"""
+
+    # Pydantic V2 配置：禁用保护命名空间（允许 model_ 开头的字段）
+    model_config = ConfigDict(protected_namespaces=())
+
     primary_model: str = Field(description="首选模型")
     fallback_models: List[str] = Field(default_factory=list, description="备用模型列表")
     model_to_provider: Dict[str, str] = Field(default_factory=dict, description="模型到服务商的映射")

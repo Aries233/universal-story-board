@@ -20,6 +20,7 @@ class Asset(SQLModel, table=True):
     """资产模型"""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True, description="资产唯一ID")
+    project_id: str = Field(foreign_key="project.id", index=True, description="所属项目ID")
     asset_type: AssetType = Field(index=True, description="资产类型")
 
     # 基本信息
