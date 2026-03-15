@@ -96,7 +96,9 @@ class CharacterAgent(BaseAgent):
         import re
 
         characters = []
-        character_pattern = r'（([^）]+）|【([^】]+】'  # 匹配（角色名）或【角色名】
+        # 修复正则表达式：使用 Unicode 码匹配中文括号和方括号
+        # （ = \uFF08，） = \uFF09，【 = \u3010，】 = \u3011
+        character_pattern = r'\uFF08[^\uFF09]+\uFF09|\u3010[^\u3011]+\u3011'  # 匹配（角色名）或【角色名】
 
         # 查找所有角色提及
         matches = re.findall(character_pattern, script)
