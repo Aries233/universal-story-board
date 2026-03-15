@@ -2,7 +2,7 @@
 Universal Story Board - 模型路由配置服务
 处理模型路由和凭证的动态解析
 """
-from typing import Optional, Dict
+from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
 from app.models.provider_credential import ProviderCredential, ProviderType
 from app.models.model_route_config import ModelRouteConfig, ModelType
