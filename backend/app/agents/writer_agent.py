@@ -70,7 +70,7 @@ class WriterAgent(BaseAgent):
                 "api_key": API Key
             }
         """
-        from app.schemas.system import ModelType
+        from app.models.model_route_config import ModelType
 
         # 从数据库获取路由配置
         route_configs = self.system_service.list_route_configs()
