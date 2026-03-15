@@ -2,7 +2,7 @@
 Universal Story Board - 工作流触发 API 路由
 提供工作流启动和状态查询接口
 """
-from typing import Any
+from typing import Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlmodel import Session
 from app.database import get_session
