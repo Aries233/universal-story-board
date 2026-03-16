@@ -6,7 +6,7 @@
  */
 import { useState, useEffect } from 'react';
 import { workflowApi, chapterApi, assetApi } from '@/lib/api';
-
+import { useParams } from 'next/navigation';
 // ========== 类型定义 ==========
 
 /**
@@ -15,11 +15,19 @@ import { workflowApi, chapterApi, assetApi } from '@/lib/api';
 type WorkflowStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 /**
+ * 进度对象
+ */
+interface ProgressObject {
+  total_steps: number;
+  completed_steps: number;
+}
+
+/**
  * 工作流状态响应
  */
 interface WorkflowStatusResponse {
   status: WorkflowStatus;
-  progress: number;
+  progress: number | ProgressObject;
   message?: string;
 }
 
@@ -63,15 +71,12 @@ interface AssetListResponse {
 
 // ========== 组件 ==========
 
-export default function WorkflowExecutionPage({
-  params,
-}: {
-  params: { chapterId: string };
-}) {
-  const chapterId = params.chapterId;
+export default function WorkflowExecutionPage() {
+  const params = useParams();
+  const chapterId = params.chapterId as string;
 
   // 硬编码的项目 ID（用于调试）
-  const PROJECT_ID = 'test-project-001';
+  const PROJECT_ID = 'c3ed38d2-f19b-4266-bb79-fc12b042e109';
 
   // ========== 状态 ==========
 
@@ -112,7 +117,20 @@ export default function WorkflowExecutionPage({
       try {
         const response: WorkflowStatusResponse = await workflowApi.getStatus(chapterId);
         setWorkflowStatus(response.status);
-        setProgress(response.progress);
+
+        // 计算进度百分比
+        let progressPercentage = 0;
+        if (typeof response.progress === 'number') {
+          progressPercentage = response.progress;
+        } else {
+          // progress 是对象 {total_steps, completed_steps}
+          const totalSteps = response.progress.total_steps || 0;
+          const completedSteps = response.progress.completed_steps || 0;
+          progressPercentage = totalSteps > 0
+            ? Math.round((completedSteps / totalSteps) * 100)
+            : 0;
+        }
+        setProgress(progressPercentage);
 
         // 如果工作流完成或失败，停止轮询
         if (response.status === 'completed' || response.status === 'failed') {
